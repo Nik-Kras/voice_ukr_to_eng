@@ -162,3 +162,4 @@ cython_debug/
 my_env
 pretrained_models
 data/**/*.wav
+audio_cache

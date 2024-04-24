@@ -16,7 +16,7 @@ def read_audio(filepath: str, time: int = 0):
     return data, sample_rate 
 
 
-def save_audio(audio_data, file_path, sample_rate):
+def save_audio(audio_data, sample_rate: int, file_path: str):
     sf.write(file_path, audio_data, sample_rate)
 
 

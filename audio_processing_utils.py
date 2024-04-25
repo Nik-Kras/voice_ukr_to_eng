@@ -10,7 +10,8 @@ def cut_sound(audio_data, sample_rate, time_cut: int):
 
 def read_audio(filepath: str, time: int = 0):
     """ Reads an audio file and cuts first `time` secs. If `time` is 0 - returns full audio """
-    data, sample_rate = sf.read(filepath)
+    # data, sample_rate = sf.read(filepath) # Reads 2 channels
+    data, sample_rate = librosa.load(filepath, sr=None) # Reads 1 channel
     if time > 0:
         data = cut_sound(data, sample_rate, time)
     return data, sample_rate 
@@ -21,4 +22,4 @@ def save_audio(audio_data, sample_rate: int, file_path: str):
 
 
 def resample(audio_data, original_sample_rate: int, target_sample_rate: int):
-    return librosa.resample(audio_data, orig_sr=original_sample_rate, target_sr=target_sample_rate)
+    return librosa.resample(audio_data, orig_sr=float(original_sample_rate), target_sr=float(target_sample_rate))

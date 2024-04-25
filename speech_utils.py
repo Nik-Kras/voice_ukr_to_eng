@@ -11,6 +11,7 @@ from transformers import AutoModelForCTC, Wav2Vec2BertProcessor
 from dotenv import load_dotenv
 from tortoise.utils.audio import load_voice
 from audio_processing_utils import resample
+import numpy as np
 import os
 
 
@@ -27,8 +28,8 @@ class SpeechProcessor:
         self.model_tts = TextToSpeech()
         self.model_asr = AutoModelForCTC.from_pretrained('Yehor/w2v-bert-2.0-uk').to(self.device)
         self.model_asr_processor = Wav2Vec2BertProcessor.from_pretrained('Yehor/w2v-bert-2.0-uk')  
-        self.enhanced_voice_sample_rate = 8_000
-        self.separated_sample_rate = 8_000
+        self.sample_rate_for_enhancement = 16_000
+        self.sample_rate_for_separation = 8_000
         self.sample_rate_for_diarization = 16_000
         self.sample_rate_for_tts = 22_050
         # print("Send models to GPU")
@@ -42,6 +43,8 @@ class SpeechProcessor:
         return {"voice": voice, "background": background}
     
     def voice_enhancment(self, voice_audio):
+        if isinstance(voice_audio, np.ndarray):
+            return self.voice_enhancment(torch.from_numpy(voice_audio).expand(1, -1)) # [].expand(1, -1) -> [[]] 
         return self.model_enhance.forward(voice_audio)
     
     def speech_segemntation(self, voice_audio, sample_rate) -> list:
@@ -57,7 +60,7 @@ class SpeechProcessor:
         
         # Make a list of audios
         voice_list = []
-        for segment, _, _ in tqdm(enumerate(diarization.itertracks(yield_label=True))):
+        for segment, _, _ in tqdm(diarization.itertracks(yield_label=True)):
             start_time = segment.start
             stop_time = segment.end
             start_sample = int(start_time * sample_rate)

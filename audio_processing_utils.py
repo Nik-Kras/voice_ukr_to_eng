@@ -2,10 +2,14 @@ import librosa
 import soundfile as sf
 
 
-def cut_sound(audio_data, sample_rate, time_cut: int):
+def cut_sound(audio_data, sample_rate, end_time: int = 0, start_time:int = 0):
     """ Returs first `time_cut` seconds of audio """
-    samples = int(sample_rate * time_cut)
-    return audio_data[:samples]
+    samples_start = int(sample_rate * start_time)
+    if end_time == 0:
+      samples_end = len(audio_data)
+    else:
+      samples_end = int(sample_rate * end_time)
+    return audio_data[samples_start:samples_end]
 
 
 def read_audio(filepath: str, time: int = 0):

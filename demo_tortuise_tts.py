@@ -16,7 +16,7 @@ if __name__ == "__main__":
     filename = "orig_youtube"
     shorfile = "short_youtube"
     yu.get_audio_from_youtube(url, filename)
-    audio, sample_rate  = apu.read_audio(f"data/{filename}.wav", time=30)
+    audio, sample_rate  = apu.read_audio(f"data/{filename}.wav", time=120)
     audio1 = apu.resample(audio, sample_rate, speech_processor.sample_rate_for_separation)
     sample_rate = speech_processor.sample_rate_for_separation
     apu.save_audio(audio1, sample_rate, f"data/{shorfile}.wav")
@@ -34,8 +34,11 @@ if __name__ == "__main__":
     logging.info("Voice segmentation...")
     voice_list = speech_processor.speech_segemntation(improved_voice, sample_rate)
     
+    MIN_LENGTH = 3
+    MAX_LENGTH = 6
     for i, voice_chunk in enumerate(voice_list):
-        apu.save_audio(voice_chunk, speech_processor.sample_rate_for_diarization, f"data/voices/voice1/chunk_{i}.wav")
+        if MAX_LENGTH > apu.audio_time_length(voice_chunk, speech_processor.sample_rate_for_diarization) > MIN_LENGTH:
+            apu.save_audio(voice_chunk, speech_processor.sample_rate_for_diarization, f"data/voices/voice1/chunk_{i}.wav")
         
     logging.info("Text to Speech...")
     text = "Hi. Today we are going to cover a very interesting topic. The name for it is: Machine Learning!"

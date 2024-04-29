@@ -23,3 +23,8 @@ def save_audio(audio_data, sample_rate: int, file_path: str):
 
 def resample(audio_data, original_sample_rate: int, target_sample_rate: int):
     return librosa.resample(audio_data, orig_sr=float(original_sample_rate), target_sr=float(target_sample_rate))
+
+
+def audio_time_length(audio_data, sample_rate: int):
+    """ Returns length of audio in seconds """
+    return int(len(audio_data)/sample_rate)

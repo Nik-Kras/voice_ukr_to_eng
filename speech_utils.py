@@ -9,8 +9,10 @@ from tqdm import tqdm
 from tortoise.api import TextToSpeech
 from transformers import AutoModelForCTC, Wav2Vec2BertProcessor
 from dotenv import load_dotenv
+from transformers import pipeline
 from tortoise.utils.audio import load_voice
 from audio_processing_utils import resample
+from openai import OpenAI
 import numpy as np
 import os
 
@@ -22,12 +24,15 @@ class SpeechProcessor:
         print("Loading models...")
         load_dotenv()
         token_key = os.getenv('TOKEN_KEY')
+        open_ai_key = os.getenv('OPEN_AI_KEY')
         self.model_diarization = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1", use_auth_token=token_key)
         self.model_separator = separator.from_hparams(source="speechbrain/sepformer-wsj02mix", savedir='pretrained_models/sepformer-wsj02mix')
         self.model_enhance = WaveformEnhancement.from_hparams(source="speechbrain/mtl-mimic-voicebank", savedir="pretrained_models/mtl-mimic-voicebank")
         self.model_tts = TextToSpeech()
         self.model_asr = AutoModelForCTC.from_pretrained('Yehor/w2v-bert-2.0-uk').to(self.device)
         self.model_asr_processor = Wav2Vec2BertProcessor.from_pretrained('Yehor/w2v-bert-2.0-uk')  
+        self.model_t2t_translation = pipeline("translation", model="facebook/nllb-200-distilled-600M")
+        self.openai_client = OpenAI(api_key=open_ai_key)
         self.sample_rate_for_enhancement = 16_000
         self.sample_rate_for_separation = 8_000
         self.sample_rate_for_diarization = 16_000
@@ -102,4 +107,17 @@ class SpeechProcessor:
         predictions = self.model_asr_processor.batch_decode(predicted_ids)
         
         return predictions
+    
+    def speech_translation_ukr_to_eng(self, text: str):
+        # PS: Output is a bit unstructured :(
+        return self.model_t2t_translation(text, src_lang="ukr", tgt_lang="eng")[0]['translation_text']
+
+    def speech_translation_whisper(self, filename: str):
+        audio_file = open(filename, "rb")
+        transcript = self.openai_client.audio.translations.create(
+            model="whisper-1",
+            file=audio_file
+        )
+        return transcript["text"]
+
          

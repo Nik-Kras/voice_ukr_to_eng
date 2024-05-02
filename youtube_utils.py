@@ -13,6 +13,7 @@ def get_audio_from_youtube(url: str, filename: str = "youtube_audio") -> str:
     file_path = audio_stream.download(output_path="data")
     convert_to_wav(file_path.split("/data/")[-1], filename)
     os.remove(file_path)
+    return f"data/{filename}.wav"
     
     
 if __name__ == "__main__":

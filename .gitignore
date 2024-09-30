@@ -160,6 +160,7 @@ cython_debug/
 #.idea/
 
 my_env
+venv310
 pretrained_models
 data/**/*.wav
 audio_cache

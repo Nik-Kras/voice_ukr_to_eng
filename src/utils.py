@@ -10,6 +10,7 @@ from styletts2 import tts
 from typing import List
 from pydub import AudioSegment
 from googletrans import Translator
+import numpy as np
 
 device = torch.device("cuda")  # Set the device to GPU if available
 
@@ -29,10 +30,18 @@ class TranscriptionElement:
         self.time_end = time_end
         self.text = text
 
+    def __repr__(self):
+        # Customize the output for better readability
+        return f"TranscriptionElement(start={self.time_start}, end={self.time_end}, text={self.text})"
+
+    def __str__(self):
+        #Define a string representation, which is used by print()
+        return f"[{self.time_start:.2f} - {self.time_end:.2f}] {self.text}"
+
 
 def get_audio_from_youtube_video(url: str, filename: str = "raw_audio"):
     """ Download audio from youtube link and save as `filename`.wav """
-    path = f'results/{filename}.wav'
+    path = f'results/{filename}'
     
     ydl_opts = {
         'format': 'bestaudio/best',         # prioritization options
@@ -48,19 +57,32 @@ def get_audio_from_youtube_video(url: str, filename: str = "raw_audio"):
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url]) 
         
-    return path
+    return path + ".wav"
 
 
 def transcribe(audio_path: str,
-               device: str = "cuda",
+               device: str = "cpu",
                batch_size: int = 16,
-               compute_type: str = "float16",
+               compute_type: str = "float32",
                model_checkpoint: str = "large-v2") -> List[TranscriptionElement]:
-    """  """
+    """
+    Transcribes an audio file into a list of TranscriptionElements, splitting each segment into individual sentences.
 
+    Parameters:
+        audio_path (str): Path to the audio file to be transcribed.
+        device (str): Device to run the model on ('cpu' or 'cuda'). Defaults to 'cpu'.
+        batch_size (int): Batch size for the transcription process. Defaults to 16.
+        compute_type (str): Data type for computation ('float32', 'float16', etc.). Defaults to 'float32'.
+        model_checkpoint (str): Model checkpoint to load (e.g., 'base', 'large-v2'). Defaults to 'large-v2'.
+
+    Returns:
+        List[TranscriptionElement]: A list of TranscriptionElement objects, each representing a sentence.
+    """
+    
     if device not in ("cuda", "cpu"):
-        raise ValueError(f"Make sure device is either cuda or cpu. Your value: {device}")
+        raise ValueError(f"Make sure device is either 'cuda' or 'cpu'. Your value: {device}")
 
+    # Load the whisper model and audio file using whisperx
     model = whisperx.load_model(model_checkpoint, device, compute_type=compute_type)
     audio = whisperx.load_audio(audio_path)
     result = model.transcribe(audio, batch_size=batch_size)
@@ -68,9 +90,45 @@ def transcribe(audio_path: str,
     result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
 
     output = []
+    
+    # Iterate through each segment and split into sentences
     for segment in result["segments"]:
-        output.append(TranscriptionElement(time_start=segment['start'], time_end=segment['end'], text=segment['text']))
+        start_time = segment['start']
+        end_time = segment['end']
+        text = segment['text'].strip()
 
+        # Use regex to split the text into sentences
+        sentences = re.split(r'(?<=[.!?]) +', text)
+        
+        # Calculate the duration of the segment
+        segment_duration = end_time - start_time
+        
+        # Calculate an estimated duration for each sentence based on their relative length
+        total_characters = sum(len(sentence) for sentence in sentences)
+        
+        # Track the start time for each sentence
+        current_start_time = start_time
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if sentence:
+                # Estimate the time this sentence took based on its proportion of the total characters
+                sentence_duration = (len(sentence) / total_characters) * segment_duration
+                current_end_time = current_start_time + sentence_duration
+                
+                # Create a new TranscriptionElement for each sentence
+                transcription_element = TranscriptionElement(
+                    time_start=current_start_time,
+                    time_end=current_end_time,
+                    text=sentence
+                )
+                
+                output.append(transcription_element)
+                
+                # Update the start time for the next sentence
+                current_start_time = current_end_time
+
+    print("Transcription Complete")
     return output
 
 
@@ -84,7 +142,7 @@ def translate(transcription) -> List[TranscriptionElement]:
     for element in transcription:
         try:
             # Translate the text (assuming the original text is in Ukrainian 'uk')
-            translation = translator.translate(element.text.strip(), src='uk', dest='en')
+            translation = translator.translate(element.text.strip(), src='ru', dest='en')
 
             # Create a new TranscriptionElement with the translated text
             translated_element = TranscriptionElement(
@@ -205,7 +263,4 @@ def merge_audio_samples(path_to_generated_audio: str, transcription: List[Transc
     
 
 if __name__ == "__main__":
-    print("Hello")
-    ...
-    ...
     ...

@@ -11,6 +11,7 @@ from src.utils import (
 
 def main(url: str):
     audio = get_audio_from_youtube_video(url)
+    #audio = "raw_audio.wav"
     transcription = transcribe(audio)               # [(time_start, time_end, text), ...]
     translation = translate(transcription)          # [(time_start, time_end, translated_text), ...]
     path_to_voice_samples = create_voice_samples_dataset(audio, transcription)

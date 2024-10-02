@@ -2,15 +2,17 @@ from typing import Dict, List
 import yt_dlp as youtube_dl
 import whisperx
 from pydub import AudioSegment
-import re
-from pydub import AudioSegment
-import os
-import torch
 from styletts2 import tts
 from typing import List
-from pydub import AudioSegment
 from googletrans import Translator
+import googletrans as gt
 import numpy as np
+import re
+import os
+import torch
+import nltk
+
+nltk.download('punkt_tab')
 
 device = torch.device("cuda")  # Set the device to GPU if available
 
@@ -45,7 +47,7 @@ def get_audio_from_youtube_video(url: str, filename: str = "raw_audio"):
     
     ydl_opts = {
         'format': 'bestaudio/best',         # prioritization options
-        'ffmpeg_location': r'C:\Users\tprok\Downloads\ffmpeg-7.0.2-essentials_build\ffmpeg-7.0.2-essentials_build\bin',
+        # 'ffmpeg_location': r'C:\Users\tprok\Downloads\ffmpeg-7.0.2-essentials_build\ffmpeg-7.0.2-essentials_build\bin',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',    # extracts audio from the video
             'preferredcodec': 'wav',        # format
@@ -83,7 +85,17 @@ def transcribe(audio_path: str,
         raise ValueError(f"Make sure device is either 'cuda' or 'cpu'. Your value: {device}")
 
     # Load the whisper model and audio file using whisperx
-    model = whisperx.load_model(model_checkpoint, device, compute_type=compute_type)
+    model = whisperx.load_model(
+        model_checkpoint,
+        device,
+        compute_type=compute_type, 
+        # asr_options={
+        #     "max_new_tokens": 128,
+        #     "clip_timestamps": True,
+        #     "hallucination_silence_threshold": 0.5,
+        #     "hotwords": []
+        # }
+    )
     audio = whisperx.load_audio(audio_path)
     result = model.transcribe(audio, batch_size=batch_size)
     model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
@@ -167,7 +179,7 @@ def translate(transcription) -> List[TranscriptionElement]:
 def create_voice_samples_dataset(audio_path, transcription: List[TranscriptionElement]) -> str:
 
     # Define the output directory
-    output_dir = "audio_dataset"
+    output_dir = "results/original_audio"
 
     # Validate the audio file path
     if not os.path.exists(audio_path):
@@ -203,7 +215,7 @@ def create_voice_samples_dataset(audio_path, transcription: List[TranscriptionEl
 
 def generate_translated_speech(path_to_voice_samples: str, translation: List[TranscriptionElement]):
     # Define the output directory for generated speech
-    generated_audio_dir = "generated_audio"
+    generated_audio_dir = "results/translated_auido"
     
     # Create the directory if it doesn't exist
     if not os.path.exists(generated_audio_dir):

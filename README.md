@@ -10,6 +10,28 @@
 pip install yt-dlp torch==2.3.1 soundfile transformers googletrans==4.0.0rc1 whisperx==3.1.5 pydub nltk styletts2
 ```
 
+3. To enable alignment - modify StyleTTS2 package:
+
+Add `speed` to `inference` method in `StyleTTS2` class:
+
+```python
+class StyleTTS2:
+    
+    ...
+
+    def inference(self,
+                  text: str,
+                  ...
+                  speed=1):
+
+        ...
+
+        duration = torch.sigmoid(duration).sum(axis=-1) / speed
+
+        ...
+
+```
+
 ## Errors:
 
 - ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location

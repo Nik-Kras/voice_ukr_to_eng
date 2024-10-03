@@ -259,6 +259,30 @@ def merge_audio_samples(path_to_generated_audio: str,
     return final_output_path
 
 
+def merge_translation(translation: List[TranscriptionElement],
+                      max_duration: int = 20,
+                      max_chars = 350) -> List[TranscriptionElement]:
+    """ Creates longer phrases for better speech generation """
+    print("Merging translations")
+    merged_translation = []
+    current_element = translation[0]
+    for next_element in translation:
+        if current_element == next_element:
+            continue
+        combined_duration = next_element.time_end - current_element.time_start
+        combined_text = current_element.text + " " + next_element.text
+        if combined_duration <= max_duration and len(combined_text) < max_chars:
+            current_element.time_end = next_element.time_end
+            current_element.text += ' ' + next_element.text
+        else:
+            print(current_element)
+            merged_translation.append(current_element)
+            current_element = next_element
+
+    merged_translation.append(current_element)
+    return merged_translation
+
+
 def replace_audio_in_video(youtube_url: str, new_audio_path: str):
     """
     Replace the audio in a YouTube video with a new audio track.

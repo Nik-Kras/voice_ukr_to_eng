@@ -5,9 +5,8 @@ from pydub import AudioSegment
 from moviepy.editor import VideoFileClip, AudioFileClip
 from styletts2 import tts
 from typing import List
-from googletrans import Translator
-import googletrans as gt
-import numpy as np
+# from googletrans import Translator
+import translators as ts
 import re
 import os
 import torch
@@ -146,20 +145,18 @@ def transcribe(audio_path: str,
     return output
 
 
-def translate(transcription: List[TranscriptionElement],
-              source_language: str = "uk") -> List[TranscriptionElement]:
+def translate(transcription: List[TranscriptionElement]) -> List[TranscriptionElement]:
     """ Translates each text element of transcription to English """
-    translator = Translator()
-    translated_elements = []
-    for element in transcription:
-        translation = translator.translate(element.text.strip(), src=source_language, dest='en')   # uk for Ukrainian
-        translated_element = TranscriptionElement(
-            time_start=element.time_start,
-            time_end=element.time_end,
-            text=translation.text
-        )
-        translated_elements.append(translated_element)
-        print(f"Translated segment [{element.time_start:.2f} --> {element.time_end:.2f}]: {translation.text}")
+    full_text = " ".join([element.text.strip() for element in transcription])
+    full_text_translated = ts.translate_text(full_text, to_language="en")
+    translated_sentences = nltk.tokenize.sent_tokenize(full_text_translated)
+    translated_elements = [
+        TranscriptionElement(
+            time_start=transcription_element.time_start,
+            time_end=transcription_element.time_end,
+            text=sentence
+        ) for sentence, transcription_element in zip(translated_sentences, transcription)
+    ]
     return translated_elements
 
 

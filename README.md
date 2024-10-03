@@ -7,7 +7,7 @@
 2. Install dependencies
 
 ```bash
-pip install yt-dlp torch==2.3.1 soundfile transformers googletrans==4.0.0rc1 whisperx==3.1.5 pydub nltk styletts2
+pip install yt-dlp torch==2.3.1 soundfile transformers googletrans==4.0.0rc1 whisperx==3.1.5 pydub nltk styletts2 translators
 ```
 
 3. To enable alignment - modify StyleTTS2 package:

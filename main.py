@@ -15,7 +15,7 @@ warnings.simplefilter("ignore")
 def main(url: str):
     audio_path = get_audio_from_youtube_video(url)
     transcription = transcribe(audio_path, device="cuda")               
-    translation = translate(transcription, "ru")
+    translation = translate(transcription)
     merged_translation = merge_translation(translation, max_duration=20)         
     path_to_voice_samples = create_voice_samples_dataset(audio_path, merged_translation)
     path_to_generated_audio = generate_translated_speech(path_to_voice_samples, merged_translation)

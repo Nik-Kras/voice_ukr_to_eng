@@ -18,7 +18,16 @@ nltk.download('punkt_tab')
 device = torch.device("cuda")  # Set the device to GPU if available
 
 # Initialize the TTS model once at the start
-my_tts = tts.StyleTTS2()
+LIBRI_TTS_CHECKPOINT_URL = "https://huggingface.co/yl4579/StyleTTS2-LibriTTS/resolve/main/Models/LibriTTS/epochs_2nd_00020.pth"
+LIBRI_TTS_CONFIG_URL = "https://huggingface.co/yl4579/StyleTTS2-LibriTTS/resolve/main/Models/LibriTTS/config.yml?download=true"
+LJ_TTS_CHECKPOINT_URL = "https://huggingface.co/yl4579/StyleTTS2-LJSpeech/resolve/main/Models/LJSpeech/epoch_2nd_00100.pth"
+LJ_TTS_CONFIG_URL = "https://huggingface.co/yl4579/StyleTTS2-LJSpeech/resolve/main/Models/LJSpeech/config.yml"
+Model_2 = "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/epoch_2nd_00012.pth"
+conflig_model_2 = "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/config.yml"
+my_tts = tts.StyleTTS2(
+    model_checkpoint_path=LJ_TTS_CHECKPOINT_URL,
+    config_path=LJ_TTS_CONFIG_URL
+)
 
 
 class TranscriptionElement:
@@ -217,52 +226,22 @@ def generate_translated_speech(path_to_voice_samples: str,
 
 def generate_aligned_speech(text: str, target_voice_path: str, output_wav_file: str):
     """ Generates a speech with intonation and voice of the target voice, saying given text with duration not exceeding the original target audio """
-    # TODO: Improve this horrible mess and make more optimized alignment
     wave, sr = librosa.load(target_voice_path)
     original_duration = len(wave) / sr
-    speed_step = 0.05
-    speed = 1
     out = my_tts.inference(
         text=text,
         target_voice_path=target_voice_path,
         output_wav_file=output_wav_file,
-        speed=speed
+        speed=1
     )
     generated_duration = len(out) / 24_000
     
-    if generated_duration > original_duration:
-        while generated_duration > original_duration:
-            speed = speed + speed_step
-            out = my_tts.inference(
-                text=text,
-                target_voice_path=target_voice_path,
-                output_wav_file=output_wav_file,
-                speed=speed
-            )
-            generated_duration = len(out) / 24_000
-            # print("Original {:.2f}, generated: {:.2f}".format(original_duration, generated_duration))
-        
-    elif generated_duration < original_duration:
-        while generated_duration < original_duration:
-            speed = speed - speed_step
-            out = my_tts.inference(
-                text=text,
-                target_voice_path=target_voice_path,
-                output_wav_file=output_wav_file,
-                speed=speed
-            )
-            generated_duration = len(out) / 24_000
-            # print("Original {:.2f}, generated: {:.2f}".format(original_duration, generated_duration))
-        
-        # To make sure generated_duration < original_duration (to fit the timing)
-        speed = speed + speed_step
-        out = my_tts.inference(
-            text=text,
-            target_voice_path=target_voice_path,
-            output_wav_file=output_wav_file,
-            speed=speed
-        )
-        generated_duration = len(out) / 24_000
+    out = my_tts.inference(
+        text=text,
+        target_voice_path=target_voice_path,
+        output_wav_file=output_wav_file,
+        speed=generated_duration/original_duration
+    )
 
     print("Generated duration: {:.2f}".format(len(out)/24_000))
 
@@ -313,14 +292,13 @@ def merge_translation(translation: List[TranscriptionElement],
     return merged_translation
 
 
-def replace_audio_in_video(youtube_url: str, new_audio_path: str):
+def replace_audio_in_video(youtube_url: str, new_audio_path: str, output_video_path: str = "new_video.mp4"):
     """
     Replace the audio in a YouTube video with a new audio track.
 
     :param youtube_url: URL of the YouTube video.
     :param segment_paths: List of file paths to the audio segments to add.
     :param locations: List of locations (in milliseconds) where each segment should be added.
-    :param output_video_path: Path to save the final output video with new audio track.
     """
     # Download the video from YouTube
     video_path = "downloaded_video.mp4"
@@ -334,7 +312,6 @@ def replace_audio_in_video(youtube_url: str, new_audio_path: str):
     video_with_new_audio = video.set_audio(new_audio)
 
     # Save the final video
-    output_video_path = "new_video.mp4"
     video_with_new_audio.write_videofile(output_video_path, codec="libx264", audio_codec="aac")
 
     # Clean up temporary files

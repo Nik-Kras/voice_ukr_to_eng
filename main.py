@@ -34,7 +34,7 @@ def main(url: str):
     path_to_result_audio = merge_audio_samples(path_to_generated_audio, audio_path,  merged_translation)
     
     # Put the new audio to the video and save it
-    path_to_new_video = replace_audio_in_video(url, path_to_result_audio)
+    path_to_new_video = replace_audio_in_video(url, path_to_result_audio, output_video_path="LJ_zelenskyy.mp4")
     return path_to_new_video
 
 

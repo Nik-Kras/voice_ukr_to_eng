@@ -5,7 +5,8 @@
 0. For Linux
 
 ```bash
-apt update && apt install -y ffmpeg build-essential cmake clang nvtop
+sudo apt update
+sudo apt install -y ffmpeg build-essential cmake clang nvtop
 ```
 
 1. Install Python 3.10
@@ -79,6 +80,12 @@ to
 
 ```python
 inputs = processor(waveform_segment.squeeze(), sampling_rate=processor.feature_extractor.sampling_rate, return_tensors="pt").to(device)
+```
+
+-- execjs._exceptions.RuntimeUnavailableError: Could not find an available JavaScript runtime.
+
+```bash
+sudo apt-get install nodejs
 ```
 
 ## Use

@@ -39,6 +39,43 @@ class StyleTTS2:
 
 ```
 
+4. Change model loading
+
+```python
+def load_model(self, model_path=None, config_path=None):
+        """
+        Loads model to prepare for inference. Loads checkpoints from provided paths or from local cache (or downloads
+        default checkpoints to local cache if not present).
+        :param model_path: Path to LibriTTS StyleTTS2 model checkpoint (TODO: LJSpeech model support)
+        :param config_path: Path to LibriTTS StyleTTS2 model config JSON (TODO: LJSpeech model support)
+        :return:
+        """
+
+        if not model_path or not Path(model_path).exists():
+            print("Invalid or missing model checkpoint path. Loading default model...")
+            model_path = cached_path(LIBRI_TTS_CHECKPOINT_URL)
+
+        if not config_path or not Path(config_path).exists():
+            print("Invalid or missing config path. Loading default config...")
+            config_path = cached_path(LIBRI_TTS_CONFIG_URL)
+```
+
+to
+
+```python
+    def load_model(self, model_path=None, config_path=None):
+        """
+        Loads model to prepare for inference. Loads checkpoints from provided paths or from local cache (or downloads
+        default checkpoints to local cache if not present).
+        :param model_path: Path to LibriTTS StyleTTS2 model checkpoint (TODO: LJSpeech model support)
+        :param config_path: Path to LibriTTS StyleTTS2 model config JSON (TODO: LJSpeech model support)
+        :return:
+        """
+
+        model_path = cached_path(model_path)
+        config_path = cached_path(config_path)
+```
+
 ## Errors:
 
 - ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location

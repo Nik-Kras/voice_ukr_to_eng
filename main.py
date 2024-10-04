@@ -13,13 +13,18 @@ import warnings
 warnings.simplefilter("ignore")
 
 MODEL_SELECTION = [
-    ("LibriTTS", "https://huggingface.co/yl4579/StyleTTS2-LibriTTS/resolve/main/Models/LibriTTS/epochs_2nd_00020.pth", "https://huggingface.co/yl4579/StyleTTS2-LibriTTS/resolve/main/Models/LibriTTS/config.yml"),
-    ("LJSpeech", "https://huggingface.co/yl4579/StyleTTS2-LJSpeech/resolve/main/Models/LJSpeech/epoch_2nd_00100.pth", "https://huggingface.co/yl4579/StyleTTS2-LJSpeech/resolve/main/Models/LJSpeech/config.yml"),
-    ("Vokan/epoch_2nd_00012", "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/epoch_2nd_00012.pth", "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/config.yml")
+    # ("LibriTTS", "https://huggingface.co/yl4579/StyleTTS2-LibriTTS/resolve/main/Models/LibriTTS/epochs_2nd_00020.pth", "https://huggingface.co/yl4579/StyleTTS2-LibriTTS/resolve/main/Models/LibriTTS/config.yml"),
+    # ("LJSpeech", "https://huggingface.co/yl4579/StyleTTS2-LJSpeech/resolve/main/Models/LJSpeech/epoch_2nd_00100.pth", "https://huggingface.co/yl4579/StyleTTS2-LJSpeech/resolve/main/Models/LJSpeech/config.yml"),
+    # ("Vokan_epoch_2nd_00012", "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/epoch_2nd_00012.pth", "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/config.yml"),
+    ("Twilight", "https://huggingface.co/therealvul/StyleTTS2/resolve/main/Twilight0/epoch_2nd_00009.pth", "https://huggingface.co/therealvul/StyleTTS2/resolve/main/Twilight0/config.yml"),
+    ("Bluebomber", "https://huggingface.co/Bluebomber182/StyleTTS2-LibriTTS-Model-by-yl4579/resolve/main/LibriTTS/epochs_2nd_00020.pth", "https://huggingface.co/Bluebomber182/StyleTTS2-LibriTTS-Model-by-yl4579/resolve/main/LibriTTS/config.yml"),
+    ("Shiro836", "https://huggingface.co/Shiro836/StyleTTS2-Forsen/resolve/main/epoch_2nd_00049.pth", "https://huggingface.co/yl4579/StyleTTS2-LibriTTS/resolve/main/Models/LibriTTS/config.yml"),
+    ("sinhprous", "https://huggingface.co/sinhprous/StyleTTS2_ESD/resolve/main/epoch_2nd_00016.pth", "https://huggingface.co/yl4579/StyleTTS2-LibriTTS/resolve/main/Models/LibriTTS/config.yml"),
+    ("ShashwatRajput", "https://huggingface.co/ShashwatRajput/StyleTTS_2_Elon/resolve/main/epoch_2nd_00099.pth", "https://huggingface.co/ShashwatRajput/StyleTTS_2_Elon/resolve/main/config_ft.yml")
 ]
 URLs = [
     ("Zelenskiy", "https://www.youtube.com/watch?v=prfaWHQoxVg"),
-    ("Macron_Inauguration", "https://www.youtube.com/watch?v=ewl7njdts7k"),
+    # ("Macron_Inauguration", "https://www.youtube.com/watch?v=ewl7njdts7k"),
     ("Pope_Francis_1", "https://www.youtube.com/watch?v=Rgn_uU8BKqQ"),
     ("Pope_Francis_2", "https://www.youtube.com/watch?v=1VcWCEikZBA"),
     # (, "https://www.youtube.com/watch?v=Qe8D5QGmfH0",)

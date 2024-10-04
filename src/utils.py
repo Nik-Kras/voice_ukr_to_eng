@@ -147,8 +147,10 @@ def transcribe(audio_path: str,
 
 def translate(transcription: List[TranscriptionElement]) -> List[TranscriptionElement]:
     """ Translates each text element of transcription to English """
+    # TODO: Update to handle big chunks of text -> Iteratively translate the text. MAX: ~15k chars
     full_text = " ".join([element.text.strip() for element in transcription])
     full_text_translated = ts.translate_text(full_text, to_language="en")
+    # TODO: Check with longer videos if WhisperX gives sentence-by-sentence transcription and it relates to Translation
     translated_sentences = nltk.tokenize.sent_tokenize(full_text_translated)
     translated_elements = [
         TranscriptionElement(
@@ -161,9 +163,9 @@ def translate(transcription: List[TranscriptionElement]) -> List[TranscriptionEl
 
 
 def create_voice_samples_dataset(audio_path: str,
-                                 transcription: List[TranscriptionElement],
+                                 translation: List[TranscriptionElement],
                                  output_dir: str = "results/original_audio") -> str:
-    """ Creates small atomic audio files from big audio by `audio_path` based on time-stamps from transcription """
+    """ Creates small atomic audio files from big audio by `audio_path` based on time-stamps from translation """
 
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
@@ -173,7 +175,7 @@ def create_voice_samples_dataset(audio_path: str,
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    for i, element in enumerate(transcription):
+    for i, element in enumerate(translation):
         start_ms = int(element.time_start * 1000)
         end_ms = int(element.time_end * 1000)
         audio_segment = audio[start_ms:end_ms]
@@ -215,12 +217,45 @@ def generate_translated_speech(path_to_voice_samples: str,
 
 def generate_aligned_speech(text: str, target_voice_path: str, output_wav_file: str):
     """ Generates a speech with intonation and voice of the target voice, saying given text with duration not exceeding the original target audio """
+    # TODO: Improve this horrible mess and make more optimized alignment
     wave, sr = librosa.load(target_voice_path)
     original_duration = len(wave) / sr
-    generated_duration = float("inf")
     speed_step = 0.05
     speed = 1
-    while generated_duration > original_duration:
+    out = my_tts.inference(
+        text=text,
+        target_voice_path=target_voice_path,
+        output_wav_file=output_wav_file,
+        speed=speed
+    )
+    generated_duration = len(out) / 24_000
+    
+    if generated_duration > original_duration:
+        while generated_duration > original_duration:
+            speed = speed + speed_step
+            out = my_tts.inference(
+                text=text,
+                target_voice_path=target_voice_path,
+                output_wav_file=output_wav_file,
+                speed=speed
+            )
+            generated_duration = len(out) / 24_000
+            # print("Original {:.2f}, generated: {:.2f}".format(original_duration, generated_duration))
+        
+    elif generated_duration < original_duration:
+        while generated_duration < original_duration:
+            speed = speed - speed_step
+            out = my_tts.inference(
+                text=text,
+                target_voice_path=target_voice_path,
+                output_wav_file=output_wav_file,
+                speed=speed
+            )
+            generated_duration = len(out) / 24_000
+            # print("Original {:.2f}, generated: {:.2f}".format(original_duration, generated_duration))
+        
+        # To make sure generated_duration < original_duration (to fit the timing)
+        speed = speed + speed_step
         out = my_tts.inference(
             text=text,
             target_voice_path=target_voice_path,
@@ -228,8 +263,6 @@ def generate_aligned_speech(text: str, target_voice_path: str, output_wav_file: 
             speed=speed
         )
         generated_duration = len(out) / 24_000
-        # print("Original {:.2f}, generated: {:.2f}".format(original_duration, generated_duration))
-        speed = speed + speed_step
 
     print("Generated duration: {:.2f}".format(len(out)/24_000))
 

@@ -98,13 +98,7 @@ def transcribe(audio_path: str,
     model = whisperx.load_model(
         model_checkpoint,
         device,
-        compute_type=compute_type, 
-        # asr_options={
-        #     "max_new_tokens": 128,
-        #     "clip_timestamps": True,
-        #     "hallucination_silence_threshold": 0.5,
-        #     "hotwords": []
-        # }
+        compute_type=compute_type
     )
     audio = whisperx.load_audio(audio_path)
     result = model.transcribe(audio, batch_size=batch_size)
@@ -174,7 +168,7 @@ def translate(transcription: List[TranscriptionElement]) -> List[TranscriptionEl
 def create_voice_samples_dataset(audio_path: str,
                                  translation: List[TranscriptionElement],
                                  output_dir: str = "results/original_audio") -> str:
-    """ Creates small atomic audio files from big audio by `audio_path` based on time-stamps from translation """
+    """ Creates small atomic audio files from original audio by `audio_path` based on time-stamps from translation """
 
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
@@ -275,9 +269,7 @@ def merge_translation(translation: List[TranscriptionElement],
     print("Merging translations")
     merged_translation = []
     current_element = translation[0]
-    for next_element in translation:
-        if current_element == next_element:
-            continue
+    for next_element in translation[1:]:
         combined_duration = next_element.time_end - current_element.time_start
         combined_text = current_element.text + " " + next_element.text
         if combined_duration <= max_duration and len(combined_text) < max_chars:

@@ -2,20 +2,32 @@ from typing import Dict, List
 import yt_dlp as youtube_dl
 import whisperx
 from pydub import AudioSegment
-import re
-from pydub import AudioSegment
-import os
-import torch
+from moviepy.editor import VideoFileClip, AudioFileClip
 from styletts2 import tts
 from typing import List
-from pydub import AudioSegment
-from googletrans import Translator
-import numpy as np
+# from googletrans import Translator
+import translators as ts
+import re
+import os
+import torch
+import nltk
+import librosa
+
+nltk.download('punkt_tab')
 
 device = torch.device("cuda")  # Set the device to GPU if available
 
 # Initialize the TTS model once at the start
-my_tts = tts.StyleTTS2()
+LIBRI_TTS_CHECKPOINT_URL = "https://huggingface.co/yl4579/StyleTTS2-LibriTTS/resolve/main/Models/LibriTTS/epochs_2nd_00020.pth"
+LIBRI_TTS_CONFIG_URL = "https://huggingface.co/yl4579/StyleTTS2-LibriTTS/resolve/main/Models/LibriTTS/config.yml?download=true"
+LJ_TTS_CHECKPOINT_URL = "https://huggingface.co/yl4579/StyleTTS2-LJSpeech/resolve/main/Models/LJSpeech/epoch_2nd_00100.pth"
+LJ_TTS_CONFIG_URL = "https://huggingface.co/yl4579/StyleTTS2-LJSpeech/resolve/main/Models/LJSpeech/config.yml"
+Model_2 = "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/epoch_2nd_00012.pth"
+conflig_model_2 = "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/config.yml"
+my_tts = tts.StyleTTS2(
+    model_checkpoint_path=LJ_TTS_CHECKPOINT_URL,
+    config_path=LJ_TTS_CONFIG_URL
+)
 
 
 class TranscriptionElement:
@@ -45,7 +57,7 @@ def get_audio_from_youtube_video(url: str, filename: str = "raw_audio"):
     
     ydl_opts = {
         'format': 'bestaudio/best',         # prioritization options
-        'ffmpeg_location': r'C:\Users\tprok\Downloads\ffmpeg-7.0.2-essentials_build\ffmpeg-7.0.2-essentials_build\bin',
+        # 'ffmpeg_location': r'C:\Users\tprok\Downloads\ffmpeg-7.0.2-essentials_build\ffmpeg-7.0.2-essentials_build\bin',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',    # extracts audio from the video
             'preferredcodec': 'wav',        # format
@@ -83,7 +95,11 @@ def transcribe(audio_path: str,
         raise ValueError(f"Make sure device is either 'cuda' or 'cpu'. Your value: {device}")
 
     # Load the whisper model and audio file using whisperx
-    model = whisperx.load_model(model_checkpoint, device, compute_type=compute_type)
+    model = whisperx.load_model(
+        model_checkpoint,
+        device,
+        compute_type=compute_type
+    )
     audio = whisperx.load_audio(audio_path)
     result = model.transcribe(audio, batch_size=batch_size)
     model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
@@ -132,68 +148,42 @@ def transcribe(audio_path: str,
     return output
 
 
-def translate(transcription) -> List[TranscriptionElement]:
-    # Initialize the translator
-    translator = Translator()
-
-    translated_elements = []
-
-    # Iterate over each transcription element and translate the text
-    for element in transcription:
-        try:
-            # Translate the text (assuming the original text is in Ukrainian 'uk')
-            translation = translator.translate(element.text.strip(), src='ru', dest='en')
-
-            # Create a new TranscriptionElement with the translated text
-            translated_element = TranscriptionElement(
-                time_start=element.time_start,
-                time_end=element.time_end,
-                text=translation.text
-            )
-
-            translated_elements.append(translated_element)
-            print(f"Translated segment [{element.time_start:.2f} --> {element.time_end:.2f}]: {translation.text}")
-
-        except Exception as e:
-            print(f"Error translating segment [{element.time_start:.2f} --> {element.time_end:.2f}]: {e}")
-            # In case of error, append the original untranslated element
-            translated_elements.append(element)
-
-    print("Translation completed.")
+def translate(transcription: List[TranscriptionElement]) -> List[TranscriptionElement]:
+    """ Translates each text element of transcription to English """
+    # TODO: Update to handle big chunks of text -> Iteratively translate the text. MAX: ~15k chars
+    full_text = " ".join([element.text.strip() for element in transcription])
+    full_text_translated = ts.translate_text(full_text, to_language="en")
+    # TODO: Check with longer videos if WhisperX gives sentence-by-sentence transcription and it relates to Translation
+    translated_sentences = nltk.tokenize.sent_tokenize(full_text_translated)
+    translated_elements = [
+        TranscriptionElement(
+            time_start=transcription_element.time_start,
+            time_end=transcription_element.time_end,
+            text=sentence
+        ) for sentence, transcription_element in zip(translated_sentences, transcription)
+    ]
     return translated_elements
 
 
+def create_voice_samples_dataset(audio_path: str,
+                                 translation: List[TranscriptionElement],
+                                 output_dir: str = "results/original_audio") -> str:
+    """ Creates small atomic audio files from original audio by `audio_path` based on time-stamps from translation """
 
-def create_voice_samples_dataset(audio_path, transcription: List[TranscriptionElement]) -> str:
-
-    # Define the output directory
-    output_dir = "audio_dataset"
-
-    # Validate the audio file path
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
-    # Load the original audio file
     audio = AudioSegment.from_file(audio_path)
 
-    # Create the output directory if it doesn't exist
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    # Process each transcription element
-    for i, element in enumerate(transcription):
-        # Extract start and end times in milliseconds
+    for i, element in enumerate(translation):
         start_ms = int(element.time_start * 1000)
         end_ms = int(element.time_end * 1000)
-
-        # Extract the audio segment based on start and end times
         audio_segment = audio[start_ms:end_ms]
-
-        # Define the output file name and path
         output_filename = f"segment_{i + 1}.wav"
         output_path = os.path.join(output_dir, output_filename)
-
-        # Export the audio segment
         audio_segment.export(output_path, format="wav")
         print(f"Exported {output_filename} [{element.time_start:.2f} --> {element.time_end:.2f}]")
 
@@ -201,31 +191,25 @@ def create_voice_samples_dataset(audio_path, transcription: List[TranscriptionEl
     return output_dir
 
 
-def generate_translated_speech(path_to_voice_samples: str, translation: List[TranscriptionElement]):
-    # Define the output directory for generated speech
-    generated_audio_dir = "generated_audio"
+def generate_translated_speech(path_to_voice_samples: str,
+                               translation: List[TranscriptionElement],
+                               generated_audio_dir: str = "results/translated_auido") -> str:
+    """ Generates speech for each translation element corresponding to each target voice sample from `path_to_voice_samples` and saves to `generated_audio_dir` """
     
-    # Create the directory if it doesn't exist
     if not os.path.exists(generated_audio_dir):
         os.makedirs(generated_audio_dir)
     
-    # Iterate over the translation elements to generate speech for each translated segment
     for i, element in enumerate(translation):
-        # Specify the path of the target voice sample for the corresponding segment
         target_voice_path = os.path.join(path_to_voice_samples, f"segment_{i + 1}.wav")
-
-        # Define the output path for the generated audio
         output_path = os.path.join(generated_audio_dir, f"translated_segment_{i + 1}.wav")
 
-        # Check if the target voice path exists
         if not os.path.exists(target_voice_path):
             print(f"Warning: Target voice sample not found for segment {i + 1}. Skipping.")
             continue
 
-        # Generate the speech using the StyleTTS2 model
         print(f"Generating translated speech for segment {i + 1}...")
         try:
-            my_tts.inference(element.text, target_voice_path=target_voice_path, output_wav_file=output_path)
+            generate_aligned_speech(element.text, target_voice_path=target_voice_path, output_wav_file=output_path)
             print(f"Generated speech for segment {i + 1} -> saved at {output_path}")
         except Exception as e:
             print(f"Error generating speech for segment {i + 1}: {e}")
@@ -234,33 +218,118 @@ def generate_translated_speech(path_to_voice_samples: str, translation: List[Tra
     return generated_audio_dir
 
 
-def merge_audio_samples(path_to_generated_audio: str, transcription: List[TranscriptionElement]):
-    # Create an empty audio segment to concatenate all parts
-    combined_audio = AudioSegment.empty()
+def generate_aligned_speech(text: str, target_voice_path: str, output_wav_file: str):
+    """ Generates a speech with intonation and voice of the target voice, saying given text with duration not exceeding the original target audio """
+    wave, sr = librosa.load(target_voice_path)
+    original_duration = len(wave) / sr
+    out = my_tts.inference(
+        text=text,
+        target_voice_path=target_voice_path,
+        output_wav_file=output_wav_file,
+        speed=1
+    )
+    generated_duration = len(out) / 24_000
+    
+    out = my_tts.inference(
+        text=text,
+        target_voice_path=target_voice_path,
+        output_wav_file=output_wav_file,
+        speed=generated_duration/original_duration
+    )
 
-    # Iterate over the transcription elements to load each translated audio segment
-    for i, element in enumerate(transcription):
+    print("Generated duration: {:.2f}".format(len(out)/24_000))
+
+
+def merge_audio_samples(path_to_generated_audio: str,
+                        original_audio_path: str,
+                        translation: List[TranscriptionElement]) -> str:
+    """ Creates an audio file from translated speech to replace the original one """
+    wave, sr = librosa.load(original_audio_path)
+    original_duration = len(wave) / sr
+
+    _, translated_sample_rate = librosa.load(os.path.join(path_to_generated_audio, f"translated_segment_1.wav"))
+    result_audio = AudioSegment.silent(duration=1000*original_duration)
+
+    for i, element in enumerate(translation):
         segment_path = os.path.join(path_to_generated_audio, f"translated_segment_{i + 1}.wav")
-
-        # Check if the segment file exists
-        if not os.path.exists(segment_path):
-            print(f"Warning: Translated segment not found for segment {i + 1}. Skipping.")
-            continue
-
-        # Load the translated audio segment
         segment_audio = AudioSegment.from_file(segment_path)
-        combined_audio += segment_audio
-        print(f"Merged segment {i + 1} [{element.time_start:.2f} --> {element.time_end:.2f}]")
+        position = int(1000 * element.time_start)
+        result_audio = result_audio.overlay(segment_audio, position=position)
 
-    # Define the output path for the final merged audio file
     final_output_path = "final_translated_audio.wav"
-    
-    # Export the combined audio to a WAV file
-    combined_audio.export(final_output_path, format="wav")
+    result_audio.export(final_output_path, format="wav")
     print(f"Final merged audio saved at {final_output_path}")
-
     return final_output_path
-    
+
+
+def merge_translation(translation: List[TranscriptionElement],
+                      max_duration: int = 20,
+                      max_chars = 350) -> List[TranscriptionElement]:
+    """ Creates longer phrases for better speech generation """
+    print("Merging translations")
+    merged_translation = []
+    current_element = translation[0]
+    for next_element in translation[1:]:
+        combined_duration = next_element.time_end - current_element.time_start
+        combined_text = current_element.text + " " + next_element.text
+        if combined_duration <= max_duration and len(combined_text) < max_chars:
+            current_element.time_end = next_element.time_end
+            current_element.text += ' ' + next_element.text
+        else:
+            print(current_element)
+            merged_translation.append(current_element)
+            current_element = next_element
+
+    merged_translation.append(current_element)
+    return merged_translation
+
+
+def replace_audio_in_video(youtube_url: str, new_audio_path: str, output_video_path: str = "new_video.mp4"):
+    """
+    Replace the audio in a YouTube video with a new audio track.
+
+    :param youtube_url: URL of the YouTube video.
+    :param segment_paths: List of file paths to the audio segments to add.
+    :param locations: List of locations (in milliseconds) where each segment should be added.
+    """
+    # Download the video from YouTube
+    video_path = "downloaded_video.mp4"
+    download_youtube_video(youtube_url, video_path)
+
+    # Load the video and the new audio track
+    video = VideoFileClip(video_path)
+    new_audio = AudioFileClip(new_audio_path)
+
+    # Set the new audio to the video
+    video_with_new_audio = video.set_audio(new_audio)
+
+    # Save the final video
+    video_with_new_audio.write_videofile(output_video_path, codec="libx264", audio_codec="aac")
+
+    # Clean up temporary files
+    video.close()
+    new_audio.close()
+    os.remove(video_path)
+
+    return output_video_path
+
+
+def download_youtube_video(youtube_url, output_path):
+    """
+    Download a video from YouTube using yt-dlp.
+
+    :param youtube_url: URL of the YouTube video.
+    :param output_path: Path to save the downloaded video.
+    """
+    ydl_opts = {
+        'format': 'bestvideo+bestaudio/best',
+        'outtmpl': output_path,
+        'merge_output_format': 'mp4',
+    }
+
+    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([youtube_url])
+
 
 if __name__ == "__main__":
     ...

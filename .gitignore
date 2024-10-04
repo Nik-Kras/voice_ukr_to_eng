@@ -166,3 +166,5 @@ data/**/*.wav
 audio_cache
 *.wav
 *.ipynb
+*vscode
+myenv

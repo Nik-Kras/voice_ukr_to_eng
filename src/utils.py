@@ -12,23 +12,10 @@ import os
 import torch
 import nltk
 import librosa
+import shutil
 
 nltk.download('punkt_tab')
-
 device = torch.device("cuda")  # Set the device to GPU if available
-
-# Initialize the TTS model once at the start
-LIBRI_TTS_CHECKPOINT_URL = "https://huggingface.co/yl4579/StyleTTS2-LibriTTS/resolve/main/Models/LibriTTS/epochs_2nd_00020.pth"
-LIBRI_TTS_CONFIG_URL = "https://huggingface.co/yl4579/StyleTTS2-LibriTTS/resolve/main/Models/LibriTTS/config.yml?download=true"
-LJ_TTS_CHECKPOINT_URL = "https://huggingface.co/yl4579/StyleTTS2-LJSpeech/resolve/main/Models/LJSpeech/epoch_2nd_00100.pth"
-LJ_TTS_CONFIG_URL = "https://huggingface.co/yl4579/StyleTTS2-LJSpeech/resolve/main/Models/LJSpeech/config.yml"
-Model_2 = "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/epoch_2nd_00012.pth"
-conflig_model_2 = "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/config.yml"
-my_tts = tts.StyleTTS2(
-    model_checkpoint_path=LJ_TTS_CHECKPOINT_URL,
-    config_path=LJ_TTS_CONFIG_URL
-)
-
 
 class TranscriptionElement:
     """Basic element of Transcription with time stamps. 
@@ -49,6 +36,66 @@ class TranscriptionElement:
     def __str__(self):
         #Define a string representation, which is used by print()
         return f"[{self.time_start:.2f} - {self.time_end:.2f}] {self.text}"
+    
+
+class SpeechToSpeechTranslator:
+    
+    def __init__(self, tts_model, tts_config):
+        self.my_tts = tts.StyleTTS2(
+            model_checkpoint_path=tts_model,
+            config_path=tts_config
+        )
+        
+    def generate_translated_speech(self,
+                                   path_to_voice_samples: str,
+                                   translation: List[TranscriptionElement],
+                                   generated_audio_dir: str = "results/translated_auido") -> str:
+        """ Generates speech for each translation element corresponding to each target voice sample from `path_to_voice_samples` and saves to `generated_audio_dir` """
+        
+        # Clear the directory if it exists
+        if os.path.exists(generated_audio_dir):
+            shutil.rmtree(generated_audio_dir)
+        os.makedirs(generated_audio_dir)
+        
+        for i, element in enumerate(translation):
+            target_voice_path = os.path.join(path_to_voice_samples, f"segment_{i + 1}.wav")
+            output_path = os.path.join(generated_audio_dir, f"translated_segment_{i + 1}.wav")
+
+            if not os.path.exists(target_voice_path):
+                print(f"Warning: Target voice sample not found for segment {i + 1}. Skipping.")
+                continue
+
+            print(f"Generating translated speech for segment {i + 1}...")
+            try:
+                self.generate_aligned_speech(element.text, target_voice_path=target_voice_path, output_wav_file=output_path)
+                print(f"Generated speech for segment {i + 1} -> saved at {output_path}")
+            except Exception as e:
+                print(f"Error generating speech for segment {i + 1}: {e}")
+        
+        print(f"All translated speech samples generated in directory: {generated_audio_dir}")
+        return generated_audio_dir
+
+
+    def generate_aligned_speech(self, text: str, target_voice_path: str, output_wav_file: str):
+        """ Generates a speech with intonation and voice of the target voice, saying given text with duration not exceeding the original target audio """
+        wave, sr = librosa.load(target_voice_path)
+        original_duration = len(wave) / sr
+        out = self.my_tts.inference(
+            text=text,
+            target_voice_path=target_voice_path,
+            output_wav_file=output_wav_file,
+            speed=1
+        )
+        generated_duration = len(out) / 24_000
+        
+        out = self.my_tts.inference(
+            text=text,
+            target_voice_path=target_voice_path,
+            output_wav_file=output_wav_file,
+            speed=generated_duration/original_duration
+        )
+
+        print("Generated duration: {:.2f}".format(len(out)/24_000))
 
 
 def get_audio_from_youtube_video(url: str, filename: str = "raw_audio"):
@@ -174,6 +221,11 @@ def create_voice_samples_dataset(audio_path: str,
         raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
     audio = AudioSegment.from_file(audio_path)
+    
+    # Clear the directory if it exists
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+    os.makedirs(output_dir)
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -189,55 +241,6 @@ def create_voice_samples_dataset(audio_path: str,
 
     print(f"All segments exported to directory: {output_dir}")
     return output_dir
-
-
-def generate_translated_speech(path_to_voice_samples: str,
-                               translation: List[TranscriptionElement],
-                               generated_audio_dir: str = "results/translated_auido") -> str:
-    """ Generates speech for each translation element corresponding to each target voice sample from `path_to_voice_samples` and saves to `generated_audio_dir` """
-    
-    if not os.path.exists(generated_audio_dir):
-        os.makedirs(generated_audio_dir)
-    
-    for i, element in enumerate(translation):
-        target_voice_path = os.path.join(path_to_voice_samples, f"segment_{i + 1}.wav")
-        output_path = os.path.join(generated_audio_dir, f"translated_segment_{i + 1}.wav")
-
-        if not os.path.exists(target_voice_path):
-            print(f"Warning: Target voice sample not found for segment {i + 1}. Skipping.")
-            continue
-
-        print(f"Generating translated speech for segment {i + 1}...")
-        try:
-            generate_aligned_speech(element.text, target_voice_path=target_voice_path, output_wav_file=output_path)
-            print(f"Generated speech for segment {i + 1} -> saved at {output_path}")
-        except Exception as e:
-            print(f"Error generating speech for segment {i + 1}: {e}")
-    
-    print(f"All translated speech samples generated in directory: {generated_audio_dir}")
-    return generated_audio_dir
-
-
-def generate_aligned_speech(text: str, target_voice_path: str, output_wav_file: str):
-    """ Generates a speech with intonation and voice of the target voice, saying given text with duration not exceeding the original target audio """
-    wave, sr = librosa.load(target_voice_path)
-    original_duration = len(wave) / sr
-    out = my_tts.inference(
-        text=text,
-        target_voice_path=target_voice_path,
-        output_wav_file=output_wav_file,
-        speed=1
-    )
-    generated_duration = len(out) / 24_000
-    
-    out = my_tts.inference(
-        text=text,
-        target_voice_path=target_voice_path,
-        output_wav_file=output_wav_file,
-        speed=generated_duration/original_duration
-    )
-
-    print("Generated duration: {:.2f}".format(len(out)/24_000))
 
 
 def merge_audio_samples(path_to_generated_audio: str,

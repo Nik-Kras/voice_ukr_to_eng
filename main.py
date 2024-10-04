@@ -4,7 +4,7 @@ from src.utils import (
     transcribe, 
     translate, 
     create_voice_samples_dataset,
-    generate_translated_speech,
+    SpeechToSpeechTranslator,
     merge_audio_samples,
     replace_audio_in_video,
     merge_translation
@@ -12,7 +12,22 @@ from src.utils import (
 import warnings
 warnings.simplefilter("ignore")
 
-def main(url: str):
+MODEL_SELECTION = [
+    ("LibriTTS", "https://huggingface.co/yl4579/StyleTTS2-LibriTTS/resolve/main/Models/LibriTTS/epochs_2nd_00020.pth", "https://huggingface.co/yl4579/StyleTTS2-LibriTTS/resolve/main/Models/LibriTTS/config.yml"),
+    ("LJSpeech", "https://huggingface.co/yl4579/StyleTTS2-LJSpeech/resolve/main/Models/LJSpeech/epoch_2nd_00100.pth", "https://huggingface.co/yl4579/StyleTTS2-LJSpeech/resolve/main/Models/LJSpeech/config.yml"),
+    ("Vokan/epoch_2nd_00012", "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/epoch_2nd_00012.pth", "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/config.yml")
+]
+URLs = [
+    ("Zelenskiy", "https://www.youtube.com/watch?v=prfaWHQoxVg"),
+    ("Macron_Inauguration", "https://www.youtube.com/watch?v=ewl7njdts7k"),
+    ("Pope_Francis_1", "https://www.youtube.com/watch?v=Rgn_uU8BKqQ"),
+    ("Pope_Francis_2", "https://www.youtube.com/watch?v=1VcWCEikZBA"),
+    # (, "https://www.youtube.com/watch?v=Qe8D5QGmfH0",)
+    # (, "https://www.youtube.com/watch?v=MvSy_Mc-X3I",)
+    # (, "https://www.youtube.com/watch?v=cka2WarC7pI")
+]
+
+def main(url: str, tts_model_url: str, tts_config_url: str, output_video_path: str = "result.mp4"):
     audio_path = get_audio_from_youtube_video(url)
     
     # Get Sentence-by-Sentence transcription in original language using WhisperX
@@ -28,16 +43,24 @@ def main(url: str):
     path_to_voice_samples = create_voice_samples_dataset(audio_path, merged_translation)
     
     # Generating English Speech with translaetd text based on original audio refernces with StyleTTS2 + Alihnment of time stamps
-    path_to_generated_audio = generate_translated_speech(path_to_voice_samples, merged_translation)
+    sst_model = SpeechToSpeechTranslator(tts_model=tts_model_url, tts_config=tts_config_url)
+    path_to_generated_audio = sst_model.generate_translated_speech(path_to_voice_samples, merged_translation)
     
     # Merging generated speech to fit the length of original audio 
     path_to_result_audio = merge_audio_samples(path_to_generated_audio, audio_path,  merged_translation)
     
     # Put the new audio to the video and save it
-    path_to_new_video = replace_audio_in_video(url, path_to_result_audio, output_video_path="LJ_zelenskyy.mp4")
+    path_to_new_video = replace_audio_in_video(url, path_to_result_audio, output_video_path=output_video_path)
     return path_to_new_video
 
 
 if __name__ == "__main__":
-    url = "https://www.youtube.com/watch?v=prfaWHQoxVg"
-    print(main(url))
+    for name, model_url, config_url in MODEL_SELECTION:
+        print("[MODEL]: {}".format(name))
+        for video_name, url in URLs:
+            print("[VIDEO]: {}".format(video_name))
+            try:
+                main(url, model_url, config_url, f"{name}_{video_name}.mp4")
+            except Exception as e:
+                print("ERROR occured: {}-{}".format(name, video_name))
+                print(e)

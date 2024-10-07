@@ -13,6 +13,7 @@ import torch
 import nltk
 import librosa
 import shutil
+import time
 
 device = torch.device("cuda")  # Set the device to GPU if available
 
@@ -48,7 +49,7 @@ class SpeechToSpeechTranslator:
     def generate_translated_speech(self,
                                    path_to_voice_samples: str,
                                    translation: List[TranscriptionElement],
-                                   generated_audio_dir: str = "results/translated_auido") -> str:
+                                   generated_audio_dir: str = "results/translated_audio_dataset") -> str:
         """ Generates speech for each translation element corresponding to each target voice sample from `path_to_voice_samples` and saves to `generated_audio_dir` """
         
         # Clear the directory if it exists
@@ -99,7 +100,7 @@ class SpeechToSpeechTranslator:
 
 def get_audio_from_youtube_video(url: str, filename: str = "original_audio"):
     """ Download audio from youtube link and save as `filename`.wav """
-    path = f'results/{filename}'
+    path = f'results/{filename}.wav'
     
     ydl_opts = {
         'format': 'bestaudio/best',         # prioritization options
@@ -193,28 +194,60 @@ def transcribe(audio_path: str,
     print("Transcription Complete")
     return output
 
-
-def translate(transcription: List[TranscriptionElement]) -> List[TranscriptionElement]:
+# TODO: Check with longer videos if WhisperX gives sentence-by-sentence transcription and it relates to Translation
+def translate(transcription: List[TranscriptionElement], max_chunk_size: int = 1000) -> List[TranscriptionElement]:
     """ Translates each text element of transcription to English """
     # TODO: Update to handle big chunks of text -> Iteratively translate the text. MAX: ~15k chars
-    full_text = " ".join([element.text.strip() for element in transcription])
-    full_text_translated = ts.translate_text(full_text, to_language="en")
-    # TODO: Check with longer videos if WhisperX gives sentence-by-sentence transcription and it relates to Translation
     nltk.download('punkt_tab')
-    translated_sentences = nltk.tokenize.sent_tokenize(full_text_translated)
-    translated_elements = [
-        TranscriptionElement(
-            time_start=transcription_element.time_start,
-            time_end=transcription_element.time_end,
-            text=sentence
-        ) for sentence, transcription_element in zip(translated_sentences, transcription)
-    ]
+    
+    translated_elements = []
+    chunk = []
+    current_chunk_size = 0
+    for element in transcription:
+        # Accumulate elements until max_chunk_size is reached
+        if current_chunk_size + len(element.text) > max_chunk_size:
+            # Translate the current chunk
+            full_text = " ".join([el.text.strip() for el in chunk])
+            full_text_translated = ts.translate_text(full_text, to_language="en")
+
+            # Split translated text into sentences
+            translated_sentences = nltk.tokenize.sent_tokenize(full_text_translated)
+
+            # Map back to transcription elements
+            for sentence, el in zip(translated_sentences, chunk):
+                translated_elements.append(TranscriptionElement(
+                    time_start=el.time_start,
+                    time_end=el.time_end,
+                    text=sentence
+                ))
+
+            # Reset the chunk
+            chunk = []
+            current_chunk_size = 0
+            time.sleep(60)
+
+        chunk.append(element)
+        current_chunk_size += len(element.text)
+
+    # Handle the last chunk (if any)
+    if chunk:
+        full_text = " ".join([el.text.strip() for el in chunk])
+        full_text_translated = ts.translate_text(full_text, to_language="en")
+
+        translated_sentences = nltk.tokenize.sent_tokenize(full_text_translated)
+        for sentence, el in zip(translated_sentences, chunk):
+            translated_elements.append(TranscriptionElement(
+                time_start=el.time_start,
+                time_end=el.time_end,
+                text=sentence
+            ))
+
     return translated_elements
 
 
 def create_voice_samples_dataset(audio_path: str,
                                  translation: List[TranscriptionElement],
-                                 output_dir: str = "results/original_audio") -> str:
+                                 output_dir: str = "results/original_audio_dataset") -> str:
     """ Creates small atomic audio files from original audio by `audio_path` based on time-stamps from translation """
 
     if not os.path.exists(audio_path):

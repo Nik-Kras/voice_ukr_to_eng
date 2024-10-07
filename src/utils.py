@@ -14,7 +14,6 @@ import nltk
 import librosa
 import shutil
 
-nltk.download('punkt_tab')
 device = torch.device("cuda")  # Set the device to GPU if available
 
 class TranscriptionElement:
@@ -98,7 +97,7 @@ class SpeechToSpeechTranslator:
         print("Generated duration: {:.2f}".format(len(out)/24_000))
 
 
-def get_audio_from_youtube_video(url: str, filename: str = "raw_audio"):
+def get_audio_from_youtube_video(url: str, filename: str = "original_audio"):
     """ Download audio from youtube link and save as `filename`.wav """
     path = f'results/{filename}'
     
@@ -201,6 +200,7 @@ def translate(transcription: List[TranscriptionElement]) -> List[TranscriptionEl
     full_text = " ".join([element.text.strip() for element in transcription])
     full_text_translated = ts.translate_text(full_text, to_language="en")
     # TODO: Check with longer videos if WhisperX gives sentence-by-sentence transcription and it relates to Translation
+    nltk.download('punkt_tab')
     translated_sentences = nltk.tokenize.sent_tokenize(full_text_translated)
     translated_elements = [
         TranscriptionElement(
@@ -289,14 +289,14 @@ def merge_translation(translation: List[TranscriptionElement],
 
 def replace_audio_in_video(youtube_url: str, new_audio_path: str, output_video_path: str = "new_video.mp4"):
     """
-    Replace the audio in a YouTube video with a new audio track.
+    Replace the audio in a YouTube video with a new audio track and save the resulting video.
 
-    :param youtube_url: URL of the YouTube video.
-    :param segment_paths: List of file paths to the audio segments to add.
-    :param locations: List of locations (in milliseconds) where each segment should be added.
+    :param youtube_url: URL of the YouTube video to download and process.
+    :param new_audio_path: File path to the new audio track that will replace the original video's audio.
+    :param output_video_path: Optional file path for the output video with the new audio track. Defaults to 'new_video.mp4'.
     """
     # Download the video from YouTube
-    video_path = "downloaded_video.mp4"
+    video_path = "results/downloaded_video.mp4"
     download_youtube_video(youtube_url, video_path)
 
     # Load the video and the new audio track
@@ -307,14 +307,12 @@ def replace_audio_in_video(youtube_url: str, new_audio_path: str, output_video_p
     video_with_new_audio = video.set_audio(new_audio)
 
     # Save the final video
-    video_with_new_audio.write_videofile(output_video_path, codec="libx264", audio_codec="aac")
+    video_with_new_audio.write_videofile(f"results/{output_video_path}", codec="libx264", audio_codec="aac")
 
     # Clean up temporary files
     video.close()
     new_audio.close()
     os.remove(video_path)
-
-    return output_video_path
 
 
 def download_youtube_video(youtube_url, output_path):

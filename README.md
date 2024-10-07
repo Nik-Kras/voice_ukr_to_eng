@@ -19,6 +19,15 @@ pip install yt-dlp torch==2.3.1 soundfile transformers googletrans==4.0.0rc1 whi
 
 ## Use
 
+```bash
+python main.py <url> --model_url <model_url> --config_url <config_url> --video_name <video_name>
+```
+
+For Example:
+
+```bash
+python main.py https://www.youtube.com/watch?v=prfaWHQoxVg --model_url "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/epoch_2nd_00012.pth" --config_url "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/config.yml" --video_name result.mp4
+```
 
 ## Errors:
 

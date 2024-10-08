@@ -29,6 +29,13 @@ python main.py <url> --model_url <model_url> --config_url <config_url> --video_n
 
 For Example:
 
+
+```bash
+python main.py https://www.youtube.com/watch?v=prfaWHQoxVg
+```
+
+or
+
 ```bash
 python main.py https://www.youtube.com/watch?v=prfaWHQoxVg --model_url "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/epoch_2nd_00012.pth" --config_url "https://huggingface.co/ShoukanLabs/Vokan/resolve/main/Model/config.yml" --video_name result.mp4
 ```

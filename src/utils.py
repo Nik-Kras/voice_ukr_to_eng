@@ -28,6 +28,7 @@ class TranscriptionElement:
         self.time_start = time_start
         self.time_end = time_end
         self.text = text
+        nltk.download('punkt_tab')
 
     def __repr__(self):
         # Customize the output for better readability
@@ -100,7 +101,7 @@ class SpeechToSpeechTranslator:
 
 def get_audio_from_youtube_video(url: str, filename: str = "original_audio"):
     """ Download audio from youtube link and save as `filename`.wav """
-    path = f'results/{filename}.wav'
+    path = f'results/{filename}'
     
     ydl_opts = {
         'format': 'bestaudio/best',         # prioritization options
@@ -119,13 +120,13 @@ def get_audio_from_youtube_video(url: str, filename: str = "original_audio"):
     return path + ".wav"
 
 
-def transcribe(audio_path: str,
+def transcribe_and_translate(audio_path: str,
                device: str = "cpu",
                batch_size: int = 16,
                compute_type: str = "float32",
                model_checkpoint: str = "large-v2") -> List[TranscriptionElement]:
     """
-    Transcribes an audio file into a list of TranscriptionElements, splitting each segment into individual sentences.
+    Transcribes and Translates to English an audio file into a list of TranscriptionElements, splitting each segment into individual sentences.
 
     Parameters:
         audio_path (str): Path to the audio file to be transcribed.
@@ -145,10 +146,12 @@ def transcribe(audio_path: str,
     model = whisperx.load_model(
         model_checkpoint,
         device,
-        compute_type=compute_type
+        compute_type=compute_type,
+        language='en',
+        task="translate"
     )
     audio = whisperx.load_audio(audio_path)
-    result = model.transcribe(audio, batch_size=batch_size)
+    result = model.transcribe(audio, batch_size=batch_size, task="translate", language='en')
     model_a, metadata = whisperx.load_align_model(language_code=result["language"], device=device)
     result = whisperx.align(result["segments"], model_a, metadata, audio, device, return_char_alignments=False)
 
@@ -292,9 +295,10 @@ def merge_audio_samples(path_to_generated_audio: str,
         position = int(1000 * element.time_start)
         result_audio = result_audio.overlay(segment_audio, position=position)
 
-    final_output_path = "final_translated_audio.wav"
+    final_output_path = "results/final_translated_audio.wav"
     result_audio.export(final_output_path, format="wav")
     print(f"Final merged audio saved at {final_output_path}")
+    os.remove(original_audio_path)
     return final_output_path
 
 

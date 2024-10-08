@@ -1,5 +1,9 @@
 # voice_ukr_to_eng
 
+The project is designed to perform AI Dubbing from the source language (tested on Ukrainian only as for now) to English for a YouTube video, preserving the voice and intonations.
+
+Currently, it only works for videos with one speaker and with no background noises. It could be a good tool to dub your lectures or webinars to English.
+
 ## Setup
 
 1. For Linux

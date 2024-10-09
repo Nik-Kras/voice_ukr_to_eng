@@ -14,6 +14,7 @@ import nltk
 import librosa
 import shutil
 import time
+import subprocess
 
 device = torch.device("cuda")  # Set the device to GPU if available
 
@@ -66,12 +67,8 @@ class SpeechToSpeechTranslator:
                 print(f"Warning: Target voice sample not found for segment {i + 1}. Skipping.")
                 continue
 
-            print(f"Generating translated speech for segment {i + 1}...")
-            try:
-                self.generate_aligned_speech(element.text, target_voice_path=target_voice_path, output_wav_file=output_path)
-                print(f"Generated speech for segment {i + 1} -> saved at {output_path}")
-            except Exception as e:
-                print(f"Error generating speech for segment {i + 1}: {e}")
+            self.generate_aligned_speech(element.text, target_voice_path=target_voice_path, output_wav_file=output_path)
+            print(f"Generated speech for segment {i + 1} -> saved at {output_path}")
         
         print(f"All translated speech samples generated in directory: {generated_audio_dir}")
         return generated_audio_dir
@@ -332,23 +329,39 @@ def replace_audio_in_video(youtube_url: str, new_audio_path: str, output_video_p
     :param new_audio_path: File path to the new audio track that will replace the original video's audio.
     :param output_video_path: Optional file path for the output video with the new audio track. Defaults to 'new_video.mp4'.
     """
+    # # Load the video and the new audio track
+    # video = VideoFileClip(video_path)
+    # new_audio = AudioFileClip(new_audio_path)
+
+    # # Set the new audio to the video
+    # video_with_new_audio = video.set_audio(new_audio)
+
+    # # Save the final video
+    # video_with_new_audio.write_videofile(f"results/{output_video_path}", codec="libx264", audio_codec="aac")
+
+    # # Clean up temporary files
+    # video.close()
+    # new_audio.close()
     # Download the video from YouTube
     video_path = "results/downloaded_video.mp4"
     download_youtube_video(youtube_url, video_path)
 
-    # Load the video and the new audio track
-    video = VideoFileClip(video_path)
-    new_audio = AudioFileClip(new_audio_path)
+    # GPU-accelerated video processing using ffmpeg
+    ffmpeg_command = [
+        'ffmpeg',
+        '-hwaccel', 'cuda',  # Enable GPU acceleration
+        '-i', video_path,  # Input video
+        '-i', new_audio_path,  # Input new audio
+        '-c:v', 'h264_nvenc',  # Use NVIDIA GPU encoder for video
+        '-c:a', 'aac',  # Audio codec
+        '-map', '0:v',  # Map video from the first input
+        '-map', '1:a',  # Map audio from the second input
+        '-shortest',  # Shorten the output if the audio is longer than video
+        f'results/{output_video_path}'  # Output video
+    ]
 
-    # Set the new audio to the video
-    video_with_new_audio = video.set_audio(new_audio)
-
-    # Save the final video
-    video_with_new_audio.write_videofile(f"results/{output_video_path}", codec="libx264", audio_codec="aac")
-
-    # Clean up temporary files
-    video.close()
-    new_audio.close()
+    # Run ffmpeg with the constructed command
+    subprocess.run(ffmpeg_command)
     os.remove(video_path)
 
 

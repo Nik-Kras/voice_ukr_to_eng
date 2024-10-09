@@ -300,6 +300,7 @@ def merge_audio_samples(path_to_generated_audio: str,
 
 
 def merge_translation(translation: List[TranscriptionElement],
+                      min_duration: int = 2,
                       max_duration: int = 20,
                       max_chars = 350) -> List[TranscriptionElement]:
     """ Creates longer phrases for better speech generation """
@@ -307,15 +308,29 @@ def merge_translation(translation: List[TranscriptionElement],
     merged_translation = []
     current_element = translation[0]
     for next_element in translation[1:]:
+        current_element_duration = current_element.time_end - current_element.time_start
         combined_duration = next_element.time_end - current_element.time_start
         combined_text = current_element.text + " " + next_element.text
+        
+        # Add text until it reaches time or char limit
         if combined_duration <= max_duration and len(combined_text) < max_chars:
             current_element.time_end = next_element.time_end
             current_element.text += ' ' + next_element.text
+        
+        # StyleTTS2 has min duration limits. Had an error with 0.7sec audio
+        elif current_element_duration > min_duration:                  
+            print(current_element)
+            merged_translation.append(current_element)
+            current_element = next_element  # You didn't add this element during iteration, so save it for the next one
+
+        # In very rare cases `current_element` (i.e. 0.7s) is < min_duration  and `next_element` (i.e. 15s) > max_duration. Merge them
         else:
+            current_element.time_end = next_element.time_end
+            current_element.text += ' ' + next_element.text
             print(current_element)
             merged_translation.append(current_element)
             current_element = next_element
+            
 
     merged_translation.append(current_element)
     return merged_translation
@@ -329,19 +344,6 @@ def replace_audio_in_video(youtube_url: str, new_audio_path: str, output_video_p
     :param new_audio_path: File path to the new audio track that will replace the original video's audio.
     :param output_video_path: Optional file path for the output video with the new audio track. Defaults to 'new_video.mp4'.
     """
-    # # Load the video and the new audio track
-    # video = VideoFileClip(video_path)
-    # new_audio = AudioFileClip(new_audio_path)
-
-    # # Set the new audio to the video
-    # video_with_new_audio = video.set_audio(new_audio)
-
-    # # Save the final video
-    # video_with_new_audio.write_videofile(f"results/{output_video_path}", codec="libx264", audio_codec="aac")
-
-    # # Clean up temporary files
-    # video.close()
-    # new_audio.close()
     # Download the video from YouTube
     video_path = "results/downloaded_video.mp4"
     download_youtube_video(youtube_url, video_path)

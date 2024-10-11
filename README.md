@@ -18,7 +18,7 @@ sudo apt install -y ffmpeg build-essential cmake clang nvtop nodejs
 ```bash
 python -m venv venv
 source venv/bin/activate
-pip install yt-dlp torch==2.3.1 soundfile transformers googletrans==4.0.0rc1 whisperx==3.1.5 pydub nltk git+https://github.com/Nik-Kras/StyleTTS2.git translators moviepy
+pip install yt-dlp torch==2.3.1 soundfile transformers googletrans==4.0.0rc1 whisperx==3.1.5 pydub nltk git+https://github.com/Nik-Kras/StyleTTS2.git translators moviepy youtube-transcript-api
 ```
 
 ## Use

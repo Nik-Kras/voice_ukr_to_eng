@@ -15,6 +15,12 @@ import librosa
 import shutil
 import time
 import subprocess
+import os
+from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api.formatters import TextFormatter
+import datetime
+
+
 
 device = torch.device("cuda")  # Set the device to GPU if available
 
@@ -384,5 +390,48 @@ def download_youtube_video(youtube_url, output_path):
         ydl.download([youtube_url])
 
 
+def fetch_english_transcript(video_url):
+    """
+    Fetches the English transcript for the given video ID.
+    """
+    def get_video_id_from_url(url):
+        """
+        Extracts the video ID from a YouTube URL.
+        Example: https://www.youtube.com/watch?v=dQw4w9WgXcQ -> dQw4w9WgXcQ
+        """
+        if "watch?v=" in url:
+            return url.split("watch?v=")[-1].split("&")[0]
+        elif "youtu.be/" in url:
+            return url.split("youtu.be/")[-1].split("&")[0]
+        else:
+            raise ValueError("Invalid YouTube URL")
+    video_id = get_video_id_from_url(video_url)
+    try:
+        # Get the transcript
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+
+        # Try to find an English transcript (either manually uploaded or auto-translated)
+        transcript = None
+        for transcript_item in transcript_list:
+            if transcript_item.language_code == 'en':
+                transcript = transcript_item.fetch()
+                break
+            if transcript_item.is_translatable:
+                transcript = transcript_item.translate('en').fetch()
+                break
+
+        if transcript is None:
+            raise ValueError("No English or translatable transcript found.")
+
+        return transcript
+
+    except Exception as e:
+        print(f"Error fetching transcript: {e}")
+        return None
+
+
+
 if __name__ == "__main__":
-    ...
+    url = r"https://www.youtube.com/watch?v=ygSzJeIlmdM&t=1s&ab_channel=SergiyPetrenko"
+    print(fetch_english_transcript(url))
+

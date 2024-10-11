@@ -432,6 +432,6 @@ def fetch_english_transcript(video_url):
 
 
 if __name__ == "__main__":
-    url = r"https://www.youtube.com/watch?v=ygSzJeIlmdM&t=1s&ab_channel=SergiyPetrenko"
+    url = r"url"
     print(fetch_english_transcript(url))
 

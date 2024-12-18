@@ -22,10 +22,10 @@ def cut_wav_file(input_file, output_file, start_time, end_time):
         print(f"An error occurred: {e}")
 
 # Parameters
-input_file = "results/tortoise_demo/china_original_audio.wav"  # Replace with your input .wav file path
-output_file = "results/tortoise_demo/china_cut_16k.wav"  # Replace with desired output .wav file path
-start_time = 120  # Start time in seconds (e.g., 1:05 = 65 seconds)
-end_time = 130    # End time in seconds (e.g., 1:15 = 75 seconds)
+input_file = "results/tortoise_demo/china_cut_16k.wav"  # Replace with your input .wav file path
+output_file = "results/tortoise_demo/china_short_cut_16k.wav"  # Replace with desired output .wav file path
+start_time = 0  # Start time in seconds (e.g., 1:05 = 65 seconds)
+end_time = 4.5    # End time in seconds (e.g., 1:15 = 75 seconds)
 
 # Cut the wav file
 cut_wav_file(input_file, output_file, start_time, end_time)

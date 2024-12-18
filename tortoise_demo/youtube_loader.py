@@ -21,5 +21,5 @@ def get_audio_from_youtube_video(url: str, filename: str = "original_audio"):
     return path + ".wav"
 
 if __name__ == "__main__":
-    url = "https://www.youtube.com/watch?v=M_lwC5zPkyo"
-    get_audio_from_youtube_video(url, filename="tortoise_demo/china_original_audio")
+    url = "https://www.youtube.com/watch?v=Ci5raxp37QE"
+    get_audio_from_youtube_video(url, filename="tortoise_demo/spanish_original_audio")
